@@ -1,0 +1,7 @@
+{
+    "device_name": "81919",
+    "ssid": "sky",
+    "password": "!@#9527sky",
+    "chip_tool": "/home/sky/data/prj/matter/sdk/connectedhomeip/out/debug/standalone/chip-tool",
+    "type": "onoff"
+  }
