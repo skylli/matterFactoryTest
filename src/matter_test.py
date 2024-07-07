@@ -86,7 +86,7 @@ class MatterTester:
         # Example usage
         # qrcode = "MT:WUXK5GAN16UEPW0PO10"
         # parse_qrcode(qrcode)
-    def pairing(self) -> bool:
+    def pairing(self, debug=False) -> bool:
         if False == self.parse_qrcode(self.qrcode):
             print("非法 qrcode !!")
             return False
@@ -95,25 +95,25 @@ class MatterTester:
         cmd += str(self.passcode) + " " + str(self.long_discriminator)
         cmd += " --bypass-attestation-verifier true"
         log.debug("shell cmd: " + str(cmd))
-        if False == self.execute_shell_command( cmd  ):
+        if False == self.execute_shell_command( cmd , debug ):
             print("蓝牙配网失败 !!!")
             return False
         return True
     
-    def onoff(self, on=True):
+    def onoff(self, on=True, debug=False):
         onoff = ' on ' if on == True else ' off '
         cmd = self.chip_tool + " onoff " + onoff + str(self.node_id) + ' 1 '
         log.debug("shell cmd: " + str(cmd))
-        if False == self.execute_shell_command( cmd  ):
+        if False == self.execute_shell_command( cmd, debug):
             print("onff 失败 !!!")
             return False
         return True
 
-    def factory_rest(self):
+    def factory_rest(self, debug=False):
         
         cmd = self.chip_tool + " pairing  unpair " +  str(self.node_id) 
         log.debug("shell cmd: " + str(cmd))
-        self.execute_shell_command( cmd  )
+        self.execute_shell_command( cmd, debug)
         os.system('rm -rf /tmp/chip_*')
         return True
     

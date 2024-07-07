@@ -8,31 +8,29 @@ def onoff_test(qrcode,conf):
         ["onoff测试", "未测试"],
         ["恢复出厂测试", "未测试"]]
     
+    debug = conf.get('debug')
     def do_matter_test():
         mdev = Mtester(qrcode, conf.get("chip_tool"), conf.get("ssid"), conf.get("password"))
-        if False == mdev.pairing():
+        if False == mdev.pairing(debug):
             test_items[0][1] = "失败"
             return False
         else:
             test_items[0][1] = "成功"
 
         rets = []
-        rets.append( mdev.onoff(True) )
-        time.sleep(1)
-        rets.append( mdev.onoff(False) )
-        time.sleep(1)
-        rets.append( mdev.onoff(True) )
+        rets.append( mdev.onoff(False, debug) )
+        rets.append( mdev.onoff(True, debug) )
         
         if False in rets:
             test_items[1][1] = "失败"
         else:
             test_items[1][1] = "成功"
         
-        if False == mdev.factory_rest():
+        if False == mdev.factory_rest(debug):
             test_items[2][1] = "失败"
         else:
             test_items[2][1] = "成功"
     do_matter_test()
     print(conf.get("device_name") + " 测试结果： ")
     for item in test_items:
-        print(item[0] + ": " + item[1])
+        print('\t' + item[0] + ": " + item[1])

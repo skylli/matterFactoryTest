@@ -1,14 +1,12 @@
 import json
 import time
-import sys, tty, termios, logging
+import sys, readchar, logging
 import threading
 from devices import onoff_test
 from logger import logger as log 
 
 # Global variable to store input characters
 input_chars = ""
-old_settings = None
-std_fd = None
 # Lock for thread-safe access to input_chars
 input_chars_lock = threading.Lock()
 def read_config(file_path):
@@ -23,15 +21,12 @@ def read_config(file_path):
 
 def qrcode_scan_thread():
     # Step 3: Continuously read keyboard input and process accordingly
-    global input_chars, old_settings, std_fd
+    global input_chars
     input_chars = ''
     last_input_time = time.time()
 
-    std_fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(std_fd)
-    tty.setraw(sys.stdin.fileno())
     while True:
-        char = sys.stdin.read(1)
+        char = readchar.readkey() # User input, but not displayed on the screen
         current_time = time.time()
         if char is None:
             time.sleep(0.1)
@@ -45,35 +40,34 @@ def qrcode_scan_thread():
                     input_chars = ''
                     input_chars += char
             last_input_time = time.time()
-        time.sleep(0.003)  # Slight sleep to avoid high CPU usage
+        # time.sleep(0.0001)  # Slight sleep to avoid high CPU usage
 
 def main_handle(thread, conf):
     global input_chars, input_chars_lock
-    global old_settings, std_fd
     last_length = 0
     last_change_time = time.time()
-
+    print("开始测试 " + conf.get("device_name") +  " 设备...")
     try:
         while True:
-            time.sleep(0.007)  # Slight sleep to avoid high CPU usage
-            with input_chars_lock:
-                current_length = len(input_chars)
+            time.sleep(0.1)  # Slight sleep to avoid high CPU usage
+            # with input_chars_lock:
+            current_length = len(input_chars)
             current_time = time.time()
 
             if current_length != last_length:
                 last_length = current_length
                 last_change_time = current_time
-            elif current_time - last_change_time >= 0.5:
+                
+            if (current_time - last_change_time) >= 0.5:
                 if current_length > 0:
                     qrcode = None
                     with input_chars_lock:
                         qrcode = input_chars
-                        print(input_chars)
                         input_chars = ""
                     if qrcode is not None:
+                        print("qrcode=", qrcode)
                         onoff_test(qrcode, conf)
-                        # termios.tcsetattr(std_fd, termios.TCSADRAIN, old_settings)
-                        # tty.setraw(sys.stdin.fileno())
+                        print("继续测试 " + conf.get("device_name") +  " 设备...")
                     last_length = 0  # Reset last_length after clearing input_chars
 
     except KeyboardInterrupt:
@@ -89,7 +83,10 @@ def main():
     config_path = sys.argv[1]
     config = read_config(config_path)
 
-    log.setLevel(logging.DEBUG)
+    if config.get("debug"):
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
     # Step 2: Extract and print device_name from the config
     device_name = config.get('device_name')
     # ssid =  config.get('ssid')
