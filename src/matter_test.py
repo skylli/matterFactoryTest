@@ -2,6 +2,7 @@ import subprocess
 import re
 import logging, os
 from logger import logger as log
+from logger import print_red_bold
 class MatterTester:
 
     def __init__(self, qrcode, chip_tool , ssid, pwd) -> None:
@@ -10,6 +11,7 @@ class MatterTester:
         self.ssid ="hex:" +  self.string_to_hex( ssid)
         self.pwd = "hex:" +  self.string_to_hex(pwd)
         self.node_id = "0x07"
+        self.manual_code = ''
 
     def string_to_hex(self, input_string):
         """
@@ -37,16 +39,17 @@ class MatterTester:
             output = result.stdout
             
             # Using regular expressions to find the required values
+            qr_version_match = re.search(r"CHIP:SPL: Version:\s+(\d+)", output)
             long_discriminator_match = re.search(r"CHIP:SPL: Long discriminator:\s+(\d+)", output)
             passcode_match = re.search(r"CHIP:SPL: Passcode:\s+(\d+)", output)
             
             if long_discriminator_match and passcode_match:
+                self.qr_version = int(qr_version_match.group(1))
                 self.long_discriminator = int(long_discriminator_match.group(1))
                 self.passcode = int(passcode_match.group(1))
                 
                 # Print the extracted values
-                print(f"Long discriminator: {self.long_discriminator}")
-                print(f"Passcode: {self.passcode}")
+                print(f"version: {self.qr_version} Long discriminator: {self.long_discriminator} Passcode: {self.passcode}")
                 return True
             else:
                 print("Failed to extract required values from the command output.")
@@ -56,7 +59,33 @@ class MatterTester:
             # Print the error output if the command fails
             print(f"Shell command failed with error: {e.stderr}")
             return False
+    def get_manual_code(self, shellcmd):
+        try:
+            # Execute the shell command
+            result = subprocess.run(shellcmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            
+            # Extract the output from stdout
+            output = result.stdout
+            
+            # Search for the manual code in the output
+            for line in output.splitlines():
+                if "CHIP:TOO: Manual Code:" in line:
+                    # Extract and return the manual code value
+                    manual_code =  line.split("CHIP:TOO: Manual Code:")[1].strip()
+                    if len(manual_code) != 11:
+                        return None
+                    
+                    # Format the manual code as required
+                    formatted_code = f"{manual_code[:4]}-{manual_code[4:7]}-{manual_code[7:]}"
+                    # print(f"Manual Code: {formatted_code}" )
+                    return formatted_code
 
+            # If the manual code is not found, return None
+            return None
+        except subprocess.CalledProcessError:
+            # If the command fails, return None
+            return None
+    
     def execute_shell_command(self, cmd, debug=True):
         """
         Execute a shell command and handle the output based on the debug flag.
@@ -90,6 +119,18 @@ class MatterTester:
         if False == self.parse_qrcode(self.qrcode):
             print("非法 qrcode !!")
             return False
+        # get manual 
+        cmd = self.chip_tool + " payload generate-manualcode "
+        cmd += " --discriminator " + str(self.long_discriminator )
+        cmd += " --setup-pin-code " + str(self.passcode )
+        cmd += " --version " + str(self.qr_version )
+        cmd += " --commissioning-mode 0 "
+        log.debug("shell cmd: " + str(cmd))
+        manual_code = self.get_manual_code(cmd)
+        if manual_code:
+            self.manual_code = manual_code
+            print_red_bold("Manual Code: " + str(manual_code))
+        
         cmd = self.chip_tool + "  pairing ble-wifi  " + str(self.node_id) + " "
         cmd += self.ssid + " " + self.pwd + " "
         cmd += str(self.passcode) + " " + str(self.long_discriminator)
@@ -127,10 +168,10 @@ if __name__ == "__main__":
     mdev = MatterTester("MT:WUXK5GAN16UEPW0PO10", 
                         "/home/sky/data/prj/matter/sdk/connectedhomeip/out/debug/standalone/chip-tool",
                         "sky", "!@#9527sky")
-    # ret = mdev.pairing()
+    ret = mdev.pairing()
     # if True == ret:
     # print("pairing: ", ret)
         # mdev.onoff(False)
         # mdev.onoff(True)
-    ret = mdev.factory_rest()
-    print(ret)
+    # ret = mdev.factory_rest()
+    # print(ret)
